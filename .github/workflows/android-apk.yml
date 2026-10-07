@@ -1,0 +1,41 @@
+name: Build Cyber David APK
+on:
+  push:
+    branches: [arena/72842692-forge-hacks]
+    paths: ['android/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build and lint native Android app
+        working-directory: android
+        run: gradle --no-daemon assembleDebug lintDebug
+      - name: Name APK and calculate checksum
+        run: |
+          mkdir -p apk-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/Cyber-David-0.1.0-debug.apk
+          cd apk-output
+          sha256sum Cyber-David-0.1.0-debug.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cyber-David-Android-APK
+          path: apk-output/
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-lint-report
+          path: android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
