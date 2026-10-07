@@ -12,13 +12,15 @@ Cyber David now includes a **native Android application** that builds into an in
 
 ### Download and install
 
+The successful build commits the installable APK to **`releases/Cyber-David-0.1.0-debug.apk`** on `arena/72842692-forge-hacks`, with a checksum in **`releases/SHA256SUMS.txt`**. Open that APK file in GitHub and choose **Download raw file**. You can also download the build artifact:
+
 1. Open this repository on GitHub and select **Actions → Build Cyber David APK**.
 2. Open a successful run on `arena/72842692-forge-hacks`.
 3. Download the **Cyber-David-Android-APK** artifact and extract its ZIP.
 4. Transfer the APK to your Android phone, open it, and allow installation from that source if prompted. Only install builds you trust.
 5. Open **Cyber David**, enter your backend's HTTPS origin and workspace access code, and connect.
 
-Artifacts are retained for 30 days. You can trigger a fresh build using **Run workflow** on the session branch. APK binaries are distributed through build artifacts, not committed to the source tree. This is a debug-signed test APK, not a Play Store release. CI debug signing keys can differ between runs; installing a newer build may require uninstalling the old one. A production release needs a privately managed signing key and release process; no signing secrets are included.
+Artifacts are retained for 30 days. You can trigger a fresh build using **Run workflow** on the session branch. The build commits the APK to `releases/` on the same session branch and also uploads it as a build artifact. The workflow requires repository contents-write permission for the APK commit; if that step is blocked, the build artifact is still available. This is a debug-signed test APK, not a Play Store release. CI debug signing keys can differ between runs; installing a newer build may require uninstalling the old one. A production release needs a privately managed signing key and release process; no signing secrets are included.
 
 ### What the native app does
 

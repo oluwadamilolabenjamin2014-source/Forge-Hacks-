@@ -5,12 +5,14 @@ on:
     paths: ['android/**', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: arena/72842692-forge-hacks
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -54,3 +56,15 @@ jobs:
           name: Android-lint-report
           path: android/app/build/reports/lint-results-debug.html
           if-no-files-found: ignore
+      - name: Commit installable APK to the session branch
+        run: |
+          mkdir -p releases
+          cp apk-output/Cyber-David-0.1.0-debug.apk releases/
+          cp apk-output/SHA256SUMS.txt releases/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f releases/Cyber-David-0.1.0-debug.apk releases/SHA256SUMS.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Package installable Cyber David Android APK"
+            git push origin arena/72842692-forge-hacks
+          fi
