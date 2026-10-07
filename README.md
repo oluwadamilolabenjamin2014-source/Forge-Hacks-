@@ -2,17 +2,28 @@
 
 Cyber David now includes a **native Android application** that builds into an installable **APK**. The Android interface uses native Android views, not a WebView or browser wrapper. The existing Node.js service is its AI backend; the earlier web interface remains as an optional companion.
 
+## What is new in v0.2.0
+
+This repository includes both the **native Android frontend** and its **Node.js/Express backend**. The app is not a WebView and the backend is not bundled inside the APK.
+
+- **Android frontend:** conversation starters, project refresh/rename/delete, activity timeline, system document picker for UTF-8 file import, per-file export, and project JSON export. Exact-name confirmation is required for deletion; file imports ask before writing.
+- **Backend:** a testable API factory, project management routes, paginated activity, export attachments, version/capability reporting, public minimal health check, configurable persistent storage, and backend-only mode.
+- **Deployment:** non-root backend `Dockerfile`, CI tests and container health checks, and separate Android APK build/lint pipeline.
+- **Verification:** 17 automated tests, including HTTP-level auth, CRUD, persistence, tool proposals, exact approval, provider failures, and concurrent mutation handling. Provider tests are mocks, not evidence of a live model call.
+
+Read [the API reference](docs/API.md) and [Android backend deployment guide](docs/DEPLOYMENT.md).
+
 ## Android APK
 
 - **App ID:** `ai.cyberdavid.app`
 - **Android support:** Android 8.0 (API 26) and later
 - **Native source:** `android/app/src/main/java/ai/cyberdavid/app/MainActivity.java`
 - **Build workflow:** `.github/workflows/android-apk.yml`
-- **APK artifact:** `Cyber-David-Android-APK`, containing `Cyber-David-0.1.0-debug.apk` and its SHA-256 checksum
+- **APK artifact:** `Cyber-David-Android-APK`, containing `Cyber-David-0.2.0-debug.apk` and its SHA-256 checksum
 
 ### Download and install
 
-The successful build commits the installable APK to **`releases/Cyber-David-0.1.0-debug.apk`** on `arena/72842692-forge-hacks`, with a checksum in **`releases/SHA256SUMS.txt`**. Open that APK file in GitHub and choose **Download raw file**. You can also download the build artifact:
+The successful build commits the installable APK to **`releases/Cyber-David-0.2.0-debug.apk`** on `arena/72842692-forge-hacks`, with a checksum in **`releases/SHA256SUMS.txt`**. Open that APK file in GitHub and choose **Download raw file**. You can also download the build artifact:
 
 1. Open this repository on GitHub and select **Actions → Build Cyber David APK**.
 2. Open a successful run on `arena/72842692-forge-hacks`.
@@ -27,11 +38,12 @@ Artifacts are retained for 30 days. You can trigger a fresh build using **Run wo
 - Connects securely to a user-configured HTTPS backend.
 - Creates and opens projects, sends AI chat requests, and displays conversation history and task plans.
 - Selects build, code review, or document analysis workflows.
-- Adds or replaces text/code files with confirmation and reads workspace files.
+- Imports UTF-8 text/code from the phone’s document picker, or adds/replaces pasted text with confirmation. Reads and exports individual workspace files.
+- Renames projects, exports project JSON backups, displays activity, and deletes projects only after exact-name confirmation.
 - Displays exact file diffs and submits approval or rejection for agent proposals.
 - Stores only the backend URL on the phone. Access codes are held in memory, backups and screenshots are disabled, and HTTP and redirects are rejected.
 
-The model does **not** run offline on the phone. A backend and internet access are required. The APK does not contain an API key, execute generated code, deploy apps, control the desktop, or connect external services. File import currently means pasting text into the native editor; binary uploads and native file export are not included. Chat outputs are shown as selectable text, including code blocks. Activity recreation (such as rotation) locks the session and may discard an unsent draft. Reconnect and reopen the project to recover server-saved work.
+The model does **not** run offline on the phone. A backend and internet access are required. The APK does not contain an API key, execute generated code, deploy apps, control the desktop, or connect external services. File imports accept UTF-8 source/text files up to 60 KB; PDFs and binary documents are not supported. File export uses the Android document picker. JSON project export is available, but a one-click backup restore is not yet implemented. Chat outputs are shown as selectable text, including code blocks. Activity recreation (such as rotation) locks the session and may discard an unsent draft. Reconnect and reopen the project to recover server-saved work.
 
 ### Build the APK locally
 
@@ -59,11 +71,15 @@ index.html             Browser HTML entry
 src/App.jsx            Cyber David interface and user workflows
 src/main.jsx           React mounting entry
 src/style.css          Responsive application styles
-server/index.js        HTTP API, authentication, storage, and server
+server/index.js        Server launcher and optional web companion
+server/api.js          HTTP API, authentication, persistence, management routes
 server/agent.js        AI provider integration and bounded tool loop
 server/workspace.js    File validation, proposals, and approval safeguards
 skills/*.md            Reusable agent workflow instructions
-tests/*.test.js        Automated agent and workspace tests
+tests/*.test.js        Agent, workspace, and HTTP integration tests
+Dockerfile             Backend-only non-root container
+docs/API.md            Endpoint reference
+docs/DEPLOYMENT.md     Backend hosting and Android connection guide
 .env.example           Configuration template (no credentials)
 ```
 
@@ -118,5 +134,7 @@ This is an MVP, not a full autonomous computer operator. It does **not** execute
 For an expanded agent, the next milestones are isolated execution workers with CPU/time/network quotas, a git worktree adapter with approval-gated commits, deployment integrations, and scoped OAuth connections. Arbitrary execution must never be added directly to this web server.
 
 ## Verification
+
+`npm test` also exercises the HTTP API with isolated temporary storage, including auth, project CRUD, JSON export, activity pagination, durable writes, mock-provider chat and approval, provider failure rollback, and concurrent mutation rejection.
 
 `npm test` covers tool rounds, pending proposals, schema enforcement, unknown tools, failed-run rollback, cancellation, bounded context, safe paths, exact approvals, stale proposals, expiration, case collisions, and workspace quotas. Live provider behavior requires a configured key and reachable endpoint; unit tests use a deterministic mock provider, not fabricated UI responses.

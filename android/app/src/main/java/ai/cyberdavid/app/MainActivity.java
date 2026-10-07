@@ -3,6 +3,12 @@ package ai.cyberdavid.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.content.Intent;
+import android.net.Uri;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
+import java.nio.ByteBuffer;
+import java.nio.charset.CodingErrorAction;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.InputType;
@@ -25,11 +31,14 @@ public class MainActivity extends Activity {
     private JSONObject project;
     private JSONArray projects = new JSONArray();
     private String screen = "projects";
+    private static final int IMPORT_FILE = 101, EXPORT_FILE = 102;
+    private String exportContent;
+    private String selectedImportProject;
     private boolean busy;
     private boolean configured;
-    private boolean closed;
+    private volatile boolean closed;
     private EditText composer;
-    private HttpURLConnection connection;
+    private volatile HttpURLConnection connection;
     interface Operation { Object run() throws Exception; }
     interface Result { void accept(Object result) throws Exception; }
 
@@ -140,15 +149,24 @@ public class MainActivity extends Activity {
     private String route() { return "/api/projects/" + project.optString("id"); }
     private void showProject() {
         layout(project.optString("name"));
+        LinearLayout actions = new LinearLayout(this);
+        actions.addView(button("Refresh", () -> { capture(); refreshProject(); }), new LinearLayout.LayoutParams(0, -2, 1));
+        actions.addView(button("Activity", () -> { capture(); screen = "activity"; showProject(); }), new LinearLayout.LayoutParams(0, -2, 1));
+        actions.addView(button("Manage", () -> { capture(); manageProject(); }), new LinearLayout.LayoutParams(0, -2, 1));
+        root.addView(actions, 3);
         nav("Projects", this::showProjects);
         nav("Chat", () -> { capture(); screen = "chat"; showProject(); });
         nav("Files", () -> { capture(); screen = "files"; showProject(); });
         nav("Review", () -> { capture(); screen = "review"; showProject(); });
+        if (screen.equals("activity")) { showActivity(); return; }
         if (screen.equals("files")) { showFiles(); return; }
         if (screen.equals("review")) { showReview(); return; }
         JSONArray messages = project.optJSONArray("messages");
         if (messages == null || messages.length() == 0) {
             body.addView(text("What are we making happen today?", 24, Color.DKGRAY));
+            body.addView(button("Build my next app", () -> setPrompt("Help me build a personal portfolio app. Ask me about the audience, content, and style, then create a plan and propose complete files.", "build")));
+            body.addView(button("Review my code", () -> setPrompt("Read my workspace files and review them for bugs, security issues, and accessibility. Propose focused fixes for my review.", "review")));
+            body.addView(button("Analyze a document", () -> setPrompt("Analyze the documents in my workspace. Summarize key findings, assumptions, contradictions, and unanswered questions. Do not invent citations.", "research")));
             body.addView(text("Describe an app, ask for a code review, or work through a document. David can inspect your files, plan the work, and propose changes for your approval.", 15, Color.GRAY));
         } else for (int i = 0; i < messages.length(); i++) {
             JSONObject m = messages.optJSONObject(i); if (m == null) continue;
@@ -188,14 +206,132 @@ public class MainActivity extends Activity {
     private void showFiles() {
         body.addView(text("Project files", 23, Color.DKGRAY));
         body.addView(text("Virtual files, not files on your phone or host repository. Tap a file to read its full text.", 13, Color.GRAY));
+        body.addView(button("Import from phone", this::pickFile));
         body.addView(button("Add / update text file", this::importText));
         JSONObject files = project.optJSONObject("files");
         if (files == null || files.length() == 0) { body.addView(text("No files yet. Add a document or ask David to propose code.", 15, Color.GRAY)); return; }
         java.util.Iterator<String> keys = files.keys();
         while (keys.hasNext()) {
             String name = keys.next();
-            body.addView(button(name, () -> showTextDialog(name, files.optString(name))));
+            LinearLayout row = new LinearLayout(this);
+            row.addView(button(name, () -> showTextDialog(name, files.optString(name))), new LinearLayout.LayoutParams(0, -2, 1));
+            row.addView(button("Save", () -> saveDocument(name.substring(name.lastIndexOf('/') + 1), files.optString(name), "text/plain")));
+            body.addView(row);
         }
+    }
+    private void setPrompt(String prompt, String mode) {
+        draft = prompt; skill = mode; screen = "chat"; showProject();
+        if (composer != null) composer.requestFocus();
+    }
+    private void refreshProject() {
+        execute(() -> request("GET", route(), null), value -> { project = (JSONObject) value; showProject(); });
+    }
+    private void manageProject() {
+        new AlertDialog.Builder(this).setTitle(project.optString("name"))
+            .setItems(new String[]{"Rename project", "Export project backup", "Delete project"}, (d, which) -> {
+                if (which == 0) renameProject();
+                else if (which == 1) execute(() -> request("GET", route() + "/export", null), value ->
+                    saveDocument("cyber-david-" + project.optString("id") + ".json", ((JSONObject) value).toString(2), "application/json"));
+                else deleteProject();
+            }).show();
+    }
+    private void renameProject() {
+        EditText name = input("Project name", false); name.setText(project.optString("name"));
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Rename project").setView(name)
+            .setNegativeButton("Cancel", null).setPositiveButton("Rename", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(w -> {
+            String title = name.getText().toString().trim();
+            if (title.isEmpty() || title.length() > 80) { name.setError("Use 1–80 characters."); return; }
+            dialog.dismiss();
+            execute(() -> request("POST", route() + "/rename", new JSONObject().put("name", title)), value -> { project = (JSONObject) value; updateProjectList(); showProject(); });
+        })); dialog.show();
+    }
+    private void updateProjectList() throws JSONException {
+        for (int i = 0; i < projects.length(); i++) {
+            if (projects.getJSONObject(i).optString("id").equals(project.optString("id"))) { projects.put(i, project); return; }
+        }
+    }
+    private void deleteProject() {
+        String name = project.optString("name");
+        EditText confirm = input("Type the exact project name", false);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Delete " + name + "?")
+            .setMessage("Permanently removes the conversations, files, plans, and proposals from this server. Export a backup first. Type the project name to confirm.")
+            .setView(confirm).setNegativeButton("Cancel", null).setPositiveButton("Delete permanently", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(w -> {
+            if (!confirm.getText().toString().equals(name)) { confirm.setError("Name must match exactly."); return; }
+            dialog.dismiss(); final String id = project.optString("id");
+            execute(() -> request("DELETE", route(), new JSONObject().put("confirmName", name)), value -> {
+                for (int i = projects.length() - 1; i >= 0; i--) if (projects.getJSONObject(i).optString("id").equals(id)) projects.remove(i);
+                project = null; draft = ""; showProjects();
+            });
+        })); dialog.show();
+    }
+    private void showActivity() {
+        body.addView(text("A clear trail of what happened", 23, Color.DKGRAY));
+        body.addView(text("Real tool actions, imports, approvals, and project updates from the server. Tap Refresh to load the latest activity.", 14, Color.GRAY));
+        JSONArray events = project.optJSONArray("activity");
+        if (events == null || events.length() == 0) { body.addView(text("No activity yet. Start a conversation or import a file.", 15, Color.GRAY)); return; }
+        int end = Math.max(0, events.length() - 100);
+        if (end > 0) body.addView(text("Showing the latest 100 events. Export the project for the full history.", 12, Color.GRAY));
+        for (int i = events.length() - 1; i >= end; i--) {
+            JSONObject event = events.optJSONObject(i); if (event == null) continue;
+            body.addView(text(event.optString("text"), 16, PURPLE));
+            body.addView(text(event.optString("time"), 12, Color.GRAY));
+        }
+    }
+    private void pickFile() {
+        selectedImportProject = project.optString("id");
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("*/*");
+        try { startActivityForResult(intent, IMPORT_FILE); }
+        catch (android.content.ActivityNotFoundException e) { feedback.setText("No document picker is installed on this phone."); }
+    }
+    private void saveDocument(String name, String content, String mime) {
+        exportContent = content;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType(mime); intent.putExtra(Intent.EXTRA_TITLE, name);
+        try { startActivityForResult(intent, EXPORT_FILE); }
+        catch (android.content.ActivityNotFoundException e) { exportContent = null; feedback.setText("No document provider is installed on this phone."); }
+    }
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) { exportContent = null; selectedImportProject = null; return; }
+        Uri uri = data.getData();
+        if (requestCode == IMPORT_FILE) {
+            if (project == null || !project.optString("id").equals(selectedImportProject)) { feedback.setText("Reopen the project and import again."); return; }
+            execute(() -> {
+                String filename = "imported.txt";
+                try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                    if (cursor != null && cursor.moveToFirst()) filename = cursor.getString(0);
+                }
+                if (filename == null) filename = "imported.txt";
+                byte[] bytes;
+                try (InputStream in = getContentResolver().openInputStream(uri); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                    if (in == null) throw new IOException("Could not open this document.");
+                    byte[] chunk = new byte[4096]; int n;
+                    while ((n = in.read(chunk)) != -1) { if (out.size() + n > 60000) throw new IOException("Choose a UTF-8 text or code file smaller than 60 KB."); out.write(chunk, 0, n); }
+                    bytes = out.toByteArray();
+                }
+                String content = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
+                if (content.indexOf('\u0000') >= 0) throw new IOException("Binary files are not supported. Choose a text or code file.");
+                return new String[]{filename, content};
+            }, value -> {
+                String[] file = (String[]) value;
+                new AlertDialog.Builder(this).setTitle("Import " + file[0] + "?")
+                    .setMessage("Adds this text to your server workspace, replacing any file with the same name. Your model can read it when you ask. Do not upload secrets.")
+                    .setNegativeButton("Cancel", null).setPositiveButton("Import", (d, which) -> execute(() ->
+                        request("POST", route() + "/files", new JSONObject().put("path", file[0]).put("content", file[1])), result -> { project = (JSONObject) result; screen = "files"; showProject(); })).show();
+            });
+        } else if (requestCode == EXPORT_FILE && exportContent != null) {
+            final String content = exportContent; exportContent = null;
+            execute(() -> {
+                try (OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (out == null) throw new IOException("Could not write to this location.");
+                    out.write(content.getBytes(StandardCharsets.UTF_8));
+                }
+                return true;
+            }, value -> feedback.setText("Saved to your chosen location."));
+        } else feedback.setText("Session changed. Please export again.");
     }
     private void showTextDialog(String title, String content) {
         ScrollView scroll = new ScrollView(this); TextView code = text(content, 12, Color.DKGRAY);
@@ -309,7 +445,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onDestroy() {
         closed = true; worker.shutdownNow();
-        HttpURLConnection c = connection; if (c != null) c.disconnect();
+        HttpURLConnection c = connection; if (c != null) new Thread(c::disconnect).start();
         token = ""; super.onDestroy();
     }
 }

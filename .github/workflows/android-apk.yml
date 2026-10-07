@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: cyber-david-apk-session
+  cancel-in-progress: false
 jobs:
   apk:
     runs-on: ubuntu-24.04
@@ -42,9 +45,9 @@ jobs:
       - name: Name APK and calculate checksum
         run: |
           mkdir -p apk-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/Cyber-David-0.1.0-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/Cyber-David-0.2.0-debug.apk
           cd apk-output
-          sha256sum Cyber-David-0.1.0-debug.apk > SHA256SUMS.txt
+          sha256sum Cyber-David-0.2.0-debug.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: Cyber-David-Android-APK
@@ -59,11 +62,11 @@ jobs:
       - name: Commit installable APK to the session branch
         run: |
           mkdir -p releases
-          cp apk-output/Cyber-David-0.1.0-debug.apk releases/
+          cp apk-output/Cyber-David-0.2.0-debug.apk releases/
           cp apk-output/SHA256SUMS.txt releases/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f releases/Cyber-David-0.1.0-debug.apk releases/SHA256SUMS.txt
+          git add -f releases/Cyber-David-0.2.0-debug.apk releases/SHA256SUMS.txt
           if ! git diff --cached --quiet; then
             git commit -m "Package installable Cyber David Android APK"
             git push origin arena/72842692-forge-hacks
