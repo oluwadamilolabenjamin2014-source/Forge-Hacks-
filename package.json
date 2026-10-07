@@ -1,0 +1,27 @@
+{
+  "name": "forge-hacks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Forge \u2014 an agentic AI workspace: vibe coding, agentic repo editing, code sandbox, long-context analysis, skills and governed extensions.",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dev": "concurrently -n server,web -c magenta,cyan \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --watch server/src/index.js",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "typecheck": "npm run typecheck -w web",
+    "smoke": "node scripts/smoke.js",
+    "agent:demo": "node scripts/agent-test.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,179 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-950: #070a11;
+  --color-ink-900: #0b0f17;
+  --color-ink-850: #0f1420;
+  --color-ink-800: #121826;
+  --color-ink-700: #172033;
+  --color-ink-600: #1d2740;
+  --color-line: #23304a;
+  --color-mist: #93a1bd;
+  --color-chalk: #e8edf7;
+  --color-forge: #f97316;
+  --color-forge-soft: #fdba74;
+  --color-sky: #38bdf8;
+  --color-mint: #34d399;
+  --color-rose: #fb7185;
+  --color-violet: #a78bfa;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 520px at 12% -8%, #16203a 0%, transparent 60%) no-repeat,
+    radial-gradient(900px 500px at 100% 0%, #1c1430 0%, transparent 55%) no-repeat,
+    var(--color-ink-900);
+  color: var(--color-chalk);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3a58 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b3a58;
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-line bg-ink-800/80 shadow-xl shadow-black/30 backdrop-blur;
+  }
+  .panel-tight {
+    @apply rounded-xl border border-line bg-ink-850/70;
+  }
+  /* Tailwind v4 cannot @apply a custom class, so the shared button utilities are
+     written once here and reused through plain CSS composition below. */
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition
+           disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply bg-forge text-ink-950 hover:brightness-110 active:brightness-95;
+  }
+  .btn-ghost {
+    @apply border border-line bg-ink-800/60 text-chalk hover:border-mist/40 hover:bg-ink-700;
+  }
+  .btn-danger {
+    @apply border border-rose/40 bg-transparent text-rose hover:bg-rose/10;
+  }
+  .btn-xs {
+    @apply rounded-md px-2 py-1 text-xs;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-ink-850 px-2.5 py-1 text-[11px] font-medium text-mist;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-ink-950/70 px-3 py-2 text-sm text-chalk
+           placeholder:text-mist/50 focus:border-forge/60 focus:outline-none focus:ring-1 focus:ring-forge/40;
+  }
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-mist;
+  }
+  .card-grid {
+    @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-3;
+  }
+  .prose-forge {
+    @apply text-[13.5px] leading-relaxed text-chalk/90;
+  }
+  .prose-forge h1,
+  .prose-forge h2,
+  .prose-forge h3 {
+    @apply mt-5 mb-2 font-semibold text-chalk;
+  }
+  .prose-forge h1 {
+    @apply text-lg;
+  }
+  .prose-forge h2 {
+    @apply text-base;
+  }
+  .prose-forge h3 {
+    @apply text-sm uppercase tracking-wide text-mist;
+  }
+  .prose-forge p {
+    @apply my-2;
+  }
+  .prose-forge ul,
+  .prose-forge ol {
+    @apply my-2 space-y-1 pl-5;
+  }
+  .prose-forge ul {
+    @apply list-disc;
+  }
+  .prose-forge ol {
+    @apply list-decimal;
+  }
+  .prose-forge code {
+    @apply rounded bg-ink-950/80 px-1.5 py-0.5 font-mono text-[12.5px] text-forge-soft;
+  }
+  .prose-forge pre {
+    @apply my-3 overflow-x-auto rounded-xl border border-line bg-ink-950/90 p-3.5;
+  }
+  .prose-forge pre code {
+    @apply bg-transparent p-0 text-[12.5px] leading-relaxed text-chalk/90;
+  }
+  .prose-forge blockquote {
+    @apply my-3 border-l-2 border-forge/60 bg-forge/5 py-2 pl-3 text-mist;
+  }
+  .prose-forge table {
+    @apply my-3 w-full border-collapse text-[12.5px];
+  }
+  .prose-forge th,
+  .prose-forge td {
+    @apply border border-line px-2.5 py-1.5 text-left align-top;
+  }
+  .prose-forge th {
+    @apply bg-ink-850 font-semibold text-mist;
+  }
+  .prose-forge a {
+    @apply text-sky underline decoration-dotted;
+  }
+  .prose-forge hr {
+    @apply my-4 border-line;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.06) 25%, rgba(148, 163, 184, 0.16) 37%, rgba(148, 163, 184, 0.06) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.blink::after {
+  content: '▊';
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+  color: var(--color-forge);
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

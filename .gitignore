@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Forge runtime state: generated projects, workspace copies, local db, audit log
+server/.forge/
+web/.vite/
+.env
+.env.local
