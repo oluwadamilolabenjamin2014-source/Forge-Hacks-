@@ -31,9 +31,9 @@ jobs:
           if ! gradle --no-daemon assembleDebug lintDebug 2>&1 | tee build.log; then
             python3 - <<'PYLOG'
           import pathlib
-          for line in pathlib.Path('build.log').read_text().splitlines()[-65:]:
-              escaped = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print(f'::error::{escaped}')
+          log = '\n'.join(pathlib.Path('build.log').read_text().splitlines()[-85:])
+          escaped = log.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error::{escaped}')
           PYLOG
             exit 1
           fi
