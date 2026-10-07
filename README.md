@@ -19,17 +19,16 @@ on each reply changes to match, so you always know what answered you.
 
 ## Quick start
 
+Two commands, no API key, no database:
+
 ```bash
 npm install
-npm start              # API + built UI on http://localhost:3001
+npm start              # → http://localhost:3001
 ```
 
-First run? Build the UI once:
-
-```bash
-npm run build          # typecheck + vite build
-npm start
-```
+`npm start` builds the React UI on first run if it is missing or stale (about 10 seconds,
+once), then boots the API server, which serves the UI and reverse-proxies any deployed
+generated apps. Nothing else to configure.
 
 For development with HMR:
 
@@ -152,6 +151,17 @@ the system is and is not, rather than a deflection.
 
 ---
 
+## npm scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm start` | Builds the UI if needed, then serves API + UI on `:3001` |
+| `npm run dev` | Vite with HMR on `:5173` + API with `--watch` on `:3001` |
+| `npm run build` | Typecheck and build the React UI into `web/dist` |
+| `npm run typecheck` | `tsc --noEmit` over the frontend |
+| `npm run smoke` | 37 live end-to-end checks (needs the server running) |
+| `npm run agent:demo` | Terminal view of the agentic repair loop |
+
 ## Architecture
 
 ```
@@ -205,10 +215,11 @@ Straight from the manifest, and enforced in code:
 ## Testing what you have built
 
 ```bash
-npm run build            # typecheck the frontend + build
-npm start &              # serve
+npm run build            # typecheck the frontend + build it
+npm start &              # serve (auto-builds the UI if it is missing)
 node scripts/smoke.js    # 37 checks: routing, retrieval, execution, generation, agent, skills, extensions
-node scripts/agent-test.mjs
+npm run agent:demo       # watch the repo agent repair a repository, step by step
+npm run typecheck        # tsc --noEmit
 ```
 
 The generated apps and the demo repository carry their own suites (`npm test` inside each),
