@@ -25,7 +25,18 @@ jobs:
           gradle-version: '8.11.1'
       - name: Build and lint native Android app
         working-directory: android
-        run: gradle --no-daemon assembleDebug lintDebug
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! gradle --no-daemon assembleDebug lintDebug 2>&1 | tee build.log; then
+            python3 - <<'PYLOG'
+          import pathlib
+          for line in pathlib.Path('build.log').read_text().splitlines()[-65:]:
+              escaped = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error::{escaped}')
+          PYLOG
+            exit 1
+          fi
       - name: Name APK and calculate checksum
         run: |
           mkdir -p apk-output
