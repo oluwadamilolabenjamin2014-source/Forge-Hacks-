@@ -1,0 +1,73 @@
+name: Build Cyber David APK
+on:
+  push:
+    branches: [arena/72842692-forge-hacks]
+    paths: ['android/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cyber-david-apk-session
+  cancel-in-progress: false
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: arena/72842692-forge-hacks
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Use Android SDK preinstalled on GitHub runner
+        run: |
+          echo "Android SDK: $ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build and lint native Android app
+        working-directory: android
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! gradle --no-daemon assembleDebug lintDebug 2>&1 | tee build.log; then
+            python3 - <<'PYLOG'
+          import pathlib
+          log = '\n'.join(pathlib.Path('build.log').read_text().splitlines()[-85:])
+          escaped = log.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error::{escaped}')
+          PYLOG
+            exit 1
+          fi
+      - name: Name APK and calculate checksum
+        run: |
+          mkdir -p apk-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/Cyber-David-0.2.0-debug.apk
+          cd apk-output
+          sha256sum Cyber-David-0.2.0-debug.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cyber-David-Android-APK
+          path: apk-output/
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-lint-report
+          path: android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+      - name: Commit installable APK to the session branch
+        run: |
+          mkdir -p releases
+          cp apk-output/Cyber-David-0.2.0-debug.apk releases/
+          cp apk-output/SHA256SUMS.txt releases/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f releases/Cyber-David-0.2.0-debug.apk releases/SHA256SUMS.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Package installable Cyber David Android APK"
+            git push origin arena/72842692-forge-hacks
+          fi

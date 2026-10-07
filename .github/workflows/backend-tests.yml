@@ -1,0 +1,35 @@
+name: Backend and companion tests
+on:
+  push:
+    branches: [arena/72842692-forge-hacks]
+    paths: ['server/**', 'tests/**', 'src/**', 'skills/**', 'app.js', 'index.html', 'package*.json', 'Dockerfile', '.github/workflows/backend-tests.yml']
+  pull_request:
+    paths: ['server/**', 'tests/**', 'src/**', 'skills/**', 'app.js', 'index.html', 'package*.json', 'Dockerfile', '.github/workflows/backend-tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify backend container builds
+        run: docker build -t cyber-david-backend:test .
+      - name: Check container health
+        run: |
+          docker run -d --name cyber-david-test -p 3000:3000 -e CYBER_DAVID_TOKEN=ci-only-token-not-a-production-secret cyber-david-backend:test
+          for attempt in {1..20}; do
+            if curl --fail http://localhost:3000/healthz; then
+              docker stop cyber-david-test
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs cyber-david-test
+          exit 1
