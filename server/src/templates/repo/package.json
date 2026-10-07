@@ -1,0 +1,15 @@
+{
+  "name": "ledger-api",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Small ledger + reporting library with an in-memory API. Ships with a failing suite — that is the point of the demo.",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "lint": "node --check src/ledger.js && node --check src/report.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
